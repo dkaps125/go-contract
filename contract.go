@@ -9,6 +9,7 @@ import (
     "bytes"
     "net/http"
     "io/ioutil"
+    "time"
 )
 
 type abiJSON struct {
@@ -29,15 +30,25 @@ type par struct {
 }
 
 type res struct {
-    Result string `json:"result'`
+    Result string `json:"result"`
+}
+
+type eventRes struct {
+    Result []data `json:"result"`
+}
+
+type data struct {
+    Data string `json:"data"`
 }
 
 type Contract struct {
     address string
     abi ABI
+    json abiJSON
+    url string
 }
 
-func (c Contract) Init(jsonPath string, address string) (Contract, error) {
+func (c Contract) Init(jsonPath string, address string, url string) (Contract, error) {
     x, _ := os.Open(jsonPath)
 
     dec := json.NewDecoder(x)
@@ -46,6 +57,8 @@ func (c Contract) Init(jsonPath string, address string) (Contract, error) {
         fmt.Printf("NO: %s\n", err)
         return c, err
     }
+
+    c.json = a
 
     str, _ := json.Marshal(a.Contents)
 
@@ -57,6 +70,7 @@ func (c Contract) Init(jsonPath string, address string) (Contract, error) {
 
     c.abi = abi
     c.address = address
+    c.url = url
     return c, nil
 }
 
@@ -66,6 +80,52 @@ func (c Contract) Call(funcName string) (string, error) {
 
 func (c Contract) Transact(funcName string, from string, args ...interface{}) (string, error) {
     return c.sendFunc(funcName, from, "eth_sendTransaction", args...)
+}
+
+func (c Contract) RegisterEventListener(eventName string) (string, error) {
+    var event prop
+    var acc string
+
+    for _, v := range c.json.Contents {
+        if v.Name == eventName && v.Type == "event" {
+            event = v
+            break
+        }
+    }
+
+    acc += event.Name + "("
+
+    for _, v := range event.Inputs {
+        acc += v.Type + ","
+    }
+
+    acc = acc[:len(acc) - 1] + ")"
+
+    hashJSON := []byte(`{"jsonrpc":"2.0","method":"web3_sha3","params":["` + acc + `"],"id":1}`)
+    hashTemp, _ := c.httpPost(hashJSON)
+    hash := hashTemp.Result
+
+    filterJSON := []byte(`{"jsonrpc":"2.0","method":"eth_newFilter","params":[{"topics":["` + hash + `"]}],"id":1}`)
+    filterTemp, _ := c.httpPost(filterJSON)
+    filterNum := filterTemp.Result
+
+    return filterNum, nil
+}
+
+func (c Contract) Listen(eventNum string, cb func(string) error) {
+    checkJSON := []byte(`{"jsonrpc":"2.0","method":"eth_getFilterChanges","params":["` + eventNum + `"],"id":1}`)
+
+    var r eventRes
+    for {
+        time.Sleep(time.Second * 5)
+
+        resp := sendHttp(checkJSON, c.url)
+        json.Unmarshal(resp, &r)
+
+        for _, v := range r.Result {
+            cb(v.Data)
+        }
+    }
 }
 
 func (c Contract) sendFunc(funcName string, from string, rpcType string, args ...interface{}) (string, error) {
@@ -83,8 +143,6 @@ func (c Contract) sendFunc(funcName string, from string, rpcType string, args ..
         return "", err
     }
 
-    url := "http://localhost:9545"
-
     var jsonStr []byte
 
     if (from == "") {
@@ -94,6 +152,20 @@ func (c Contract) sendFunc(funcName string, from string, rpcType string, args ..
 
     }
 
+    resp, _ := c.httpPost(jsonStr)
+    return resp.Result, nil
+}
+
+func (c Contract) httpPost(jsonStr []byte) (res, error) {
+    var r res
+
+    body := sendHttp(jsonStr, c.url)
+
+    json.Unmarshal(body, &r)
+    return r, nil
+}
+
+func sendHttp(jsonStr []byte, url string) []byte {
     req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonStr))
     req.Header.Set("Content-Type", "application/json")
 
@@ -101,14 +173,11 @@ func (c Contract) sendFunc(funcName string, from string, rpcType string, args ..
     resp, err := client.Do(req)
 
     if err != nil {
-        return "", err
+        return nil
     }
 
     defer resp.Body.Close()
 
     body, _ := ioutil.ReadAll(resp.Body)
-
-    var r res
-    json.Unmarshal(body, &r)
-    return r.Result, nil
+    return body
 }
