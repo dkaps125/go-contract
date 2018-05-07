@@ -2,7 +2,7 @@ package main
 
 import (
     "fmt"
-    "github.com/dkaps125/go-contract"
+    "github.com/dkaps125/go-contract/contract"
 )
 
 func main() {
