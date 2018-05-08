@@ -118,7 +118,7 @@ func (c Contract) Listen(eventNum string, eventName string, cb func([]interface{
 
     var r eventRes
     for {
-        time.Sleep(time.Second * 5)
+        time.Sleep(time.Second * 2)
 
         resp := sendHttp(checkJSON, c.url)
         json.Unmarshal(resp, &r)
@@ -127,6 +127,25 @@ func (c Contract) Listen(eventNum string, eventName string, cb func([]interface{
             encb, _ := hex.DecodeString(v.Data[2:])
             res, _ := c.abi.Events[eventName].Inputs.UnpackValues(encb)
             cb(res)
+        }
+    }
+}
+
+func (c Contract) ListenOnce(eventNum string, eventName string, cb func([]interface{}) error) {
+    checkJSON := []byte(`{"jsonrpc":"2.0","method":"eth_getFilterChanges","params":["` + eventNum + `"],"id":1}`)
+
+    var r eventRes
+    for {
+        time.Sleep(time.Second * 2)
+
+        resp := sendHttp(checkJSON, c.url)
+        json.Unmarshal(resp, &r)
+
+        for _, v := range r.Result {
+            encb, _ := hex.DecodeString(v.Data[2:])
+            res, _ := c.abi.Events[eventName].Inputs.UnpackValues(encb)
+            cb(res)
+            return
         }
     }
 }
