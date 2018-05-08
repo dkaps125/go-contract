@@ -174,7 +174,12 @@ func (c Contract) sendFunc(funcName string, from string, rpcType string, args ..
 
     }
 
-    resp, _ := c.httpPost(jsonStr)
+    resp, err := c.httpPost(jsonStr)
+
+    if err != nil {
+        return "", nil
+    }
+
     return resp.Result, nil
 }
 
