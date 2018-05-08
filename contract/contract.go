@@ -6,6 +6,7 @@ import (
     "fmt"
     "os"
     "encoding/json"
+    "encoding/hex"
     "bytes"
     "net/http"
     "io/ioutil"
@@ -112,7 +113,7 @@ func (c Contract) RegisterEventListener(eventName string) (string, error) {
     return filterNum, nil
 }
 
-func (c Contract) Listen(eventNum string, cb func(string) error) {
+func (c Contract) Listen(eventNum string, eventName string, cb func([]interface{}) error) {
     checkJSON := []byte(`{"jsonrpc":"2.0","method":"eth_getFilterChanges","params":["` + eventNum + `"],"id":1}`)
 
     var r eventRes
@@ -123,7 +124,9 @@ func (c Contract) Listen(eventNum string, cb func(string) error) {
         json.Unmarshal(resp, &r)
 
         for _, v := range r.Result {
-            cb(v.Data)
+            encb, _ := hex.DecodeString(v.Data[2:])
+            res, _ := c.abi.Events[eventName].Inputs.UnpackValues(encb)
+            cb(res)
         }
     }
 }
