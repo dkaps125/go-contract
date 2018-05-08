@@ -75,8 +75,8 @@ func (c Contract) Init(jsonPath string, address string, url string) (Contract, e
     return c, nil
 }
 
-func (c Contract) Call(funcName string) (string, error) {
-    return c.sendFunc(funcName, "", "eth_call")
+func (c Contract) Call(funcName string, args ...interface{}) (string, error) {
+    return c.sendFunc(funcName, "", "eth_call", args...)
 }
 
 func (c Contract) Transact(funcName string, from string, args ...interface{}) (string, error) {
@@ -149,9 +149,9 @@ func (c Contract) sendFunc(funcName string, from string, rpcType string, args ..
     var jsonStr []byte
 
     if (from == "") {
-        jsonStr = []byte(`{"jsonrpc":"2.0","method": "` + rpcType + `", "params": [{"to": "` + c.address + `" , "data": "` + fmt.Sprintf("0x%x", out) + `"}], "id": 1}`)
+        jsonStr = []byte(`{"jsonrpc":"2.0","method": "` + rpcType + `", "params": [{"to": "` + c.address + `" , "data": "` + fmt.Sprintf("0x%x", out) + `", "gas": "0x2dc6c0"}], "id": 1}`)
     } else {
-        jsonStr = []byte(`{"jsonrpc":"2.0","method": "` + rpcType + `", "params": [{"from": "` + from + `", "to": "` + c.address + `" , "data": "` + fmt.Sprintf("0x%x", out) + `"}], "id": 1}`)
+        jsonStr = []byte(`{"jsonrpc":"2.0","method": "` + rpcType + `", "params": [{"from": "` + from + `", "to": "` + c.address + `" , "data": "` + fmt.Sprintf("0x%x", out) + `", "gas": "0x2dc6c0"}], "id": 1}`)
 
     }
 
