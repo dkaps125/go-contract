@@ -11,6 +11,7 @@ import (
     "net/http"
     "io/ioutil"
     "time"
+    "strconv"
 )
 
 type abiJSON struct {
@@ -76,7 +77,7 @@ func (c Contract) Init(jsonPath string, address string, url string) (Contract, e
 }
 
 func (c Contract) Call(funcName string, args ...interface{}) ([]interface{}, error) {
-    str, _ := c.sendFunc(funcName, "", "eth_call", args...)
+    str, _ := c.sendFunc(funcName, "", "eth_call", 0, args...)
     encb, _ := hex.DecodeString(str[2:])
     res, _ := c.abi.Methods[funcName].Outputs.UnpackValues(encb)
 
@@ -84,7 +85,11 @@ func (c Contract) Call(funcName string, args ...interface{}) ([]interface{}, err
 }
 
 func (c Contract) Transact(funcName string, from string, args ...interface{}) (string, error) {
-    return c.sendFunc(funcName, from, "eth_sendTransaction", args...)
+    return c.sendFunc(funcName, from, "eth_sendTransaction", 0, args...)
+}
+
+func (c Contract) TransactValue(funcName string, from string, value int64, args ...interface{}) (string, error) {
+    return c.sendFunc(funcName, from, "eth_sendTransaction", value, args...)
 }
 
 func (c Contract) RegisterEventListener(eventName string) (string, error) {
@@ -154,7 +159,7 @@ func (c Contract) ListenOnce(eventNum string, eventName string, cb func([]interf
     }
 }
 
-func (c Contract) sendFunc(funcName string, from string, rpcType string, args ...interface{}) (string, error) {
+func (c Contract) sendFunc(funcName string, from string, rpcType string, value int64, args ...interface{}) (string, error) {
     var out []byte
     var err error
 
@@ -172,9 +177,9 @@ func (c Contract) sendFunc(funcName string, from string, rpcType string, args ..
     var jsonStr []byte
 
     if (from == "") {
-        jsonStr = []byte(`{"jsonrpc":"2.0","method": "` + rpcType + `", "params": [{"to": "` + c.address + `" , "data": "` + fmt.Sprintf("0x%x", out) + `", "gas": "0x2dc6c0"}], "id": 1}`)
+        jsonStr = []byte(`{"jsonrpc":"2.0","method": "` + rpcType + `", "params": [{"to": "` + c.address + `" , "data": "` + fmt.Sprintf("0x%x", out) + `", "value": "0x` + strconv.FormatInt(value, 16) + `", "gas": "0x2dc6c0"}], "id": 1}`)
     } else {
-        jsonStr = []byte(`{"jsonrpc":"2.0","method": "` + rpcType + `", "params": [{"from": "` + from + `", "to": "` + c.address + `" , "data": "` + fmt.Sprintf("0x%x", out) + `", "gas": "0x2dc6c0"}], "id": 1}`)
+        jsonStr = []byte(`{"jsonrpc":"2.0","method": "` + rpcType + `", "params": [{"from": "` + from + `", "to": "` + c.address + `" , "data": "` + fmt.Sprintf("0x%x", out) + `", "value": "0x` + strconv.FormatInt(value, 16) + `", "gas": "0x2dc6c0"}], "id": 1}`)
 
     }
 
