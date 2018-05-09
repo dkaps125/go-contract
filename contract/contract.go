@@ -75,8 +75,12 @@ func (c Contract) Init(jsonPath string, address string, url string) (Contract, e
     return c, nil
 }
 
-func (c Contract) Call(funcName string, args ...interface{}) (string, error) {
-    return c.sendFunc(funcName, "", "eth_call", args...)
+func (c Contract) Call(funcName string, args ...interface{}) ([]interface{}, error) {
+    str, _ := c.sendFunc(funcName, "", "eth_call", args...)
+    encb, _ := hex.DecodeString(str[2:])
+    res, _ := c.abi.Methods[funcName].Outputs.UnpackValues(encb)
+
+    return res, nil
 }
 
 func (c Contract) Transact(funcName string, from string, args ...interface{}) (string, error) {
