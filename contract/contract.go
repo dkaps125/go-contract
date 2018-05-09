@@ -186,8 +186,10 @@ func (c Contract) sendFunc(funcName string, from string, rpcType string, value i
     resp, err := c.httpPost(jsonStr)
 
     if err != nil {
-        return "", nil
+        return "", err
     }
+
+    fmt.Printf("%v\n", resp)
 
     return resp.Result, nil
 }
